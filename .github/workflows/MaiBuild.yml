@@ -1,0 +1,22 @@
+name: MaiBuild
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Add msbuild to PATH
+         uses: microsoft/setup-msbuild@v1.1
+     - name: Build app for release
+          run: msbuild MaiSense.sln /p:Configuration=Release /p:Platform=x86
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v2
+        with:
+         name:  MaiSenseQinlili
+         path:  build\Release
+        
