@@ -20,6 +20,8 @@ SensorProcessor processor;
 
 BOOL APIENTRY DllMain(HMODULE hMod, DWORD cause, LPVOID lpReserved)
 {
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
     if (!InputManager::Ready())
         return TRUE;
 
