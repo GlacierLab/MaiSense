@@ -1,5 +1,5 @@
 # MaiSense #
-
+### 本分支新增高DPI缩放功能，让Surface用户体验更好
 - **Author**: SirusDoma (a.k.a CXO2)
 - **Email**: com@cxo2.me
 - **Version**: 1.0.0
