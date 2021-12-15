@@ -13,11 +13,7 @@ jobs:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
       - name: Build app for release
-<<<<<<< HEAD
-        run: msbuild MaiSense.sln /p:Configuration=Release /p:Platform=x86 /p:DebugSymbols=false /p:DebugType=none 
-=======
         run: msbuild MaiSense.sln /p:Configuration=Release /p:Platform=x86
->>>>>>> parent of 2ffd9ff (Update MaiBuild.yml)
       - name: Upload build artifacts
         uses: actions/upload-artifact@v2
         with:
