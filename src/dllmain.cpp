@@ -18,15 +18,72 @@ MouseController mouseController;
 SensorChecker sensorChecker;
 SensorProcessor processor;
 
+typedef DWORD(WINAPI* pfWaitForSingleObject)(HANDLE,DWORD);
+pfWaitForSingleObject OldWait = NULL;
+DWORD WINAPI MyWait(HANDLE hdl, DWORD dwd)
+{
+    DWORD dwd2 = dwd/2;
+    return OldWait(hdl,dwd2);
+}
+PIMAGE_NT_HEADERS GetLocalNtHead()
+{
+    DWORD dwTemp = NULL;
+    PIMAGE_DOS_HEADER pDosHead = NULL;
+    PIMAGE_NT_HEADERS pNtHead = NULL;
+    HMODULE ImageBase = GetModuleHandle(NULL);                              // 取自身ImageBase
+    pDosHead = (PIMAGE_DOS_HEADER)(DWORD)ImageBase;                         // 取pDosHead地址
+    dwTemp = (DWORD)pDosHead + (DWORD)pDosHead->e_lfanew;
+    pNtHead = (PIMAGE_NT_HEADERS)dwTemp;                                    // 取出NtHead头地址
+    return pNtHead;
+}
+void IATHook()
+{
+    PVOID pFuncAddress = NULL;
+    HINSTANCE dll_file = GetModuleHandle(L"kernel32.dll");
+    pFuncAddress = GetProcAddress(dll_file, "WaitForSingleObject");  // 取Hook函数地址
+    OldWait = (pfWaitForSingleObject)pFuncAddress;
+    PIMAGE_NT_HEADERS pNtHead = GetLocalNtHead();                                  // 获取到程序自身NtHead
+    PIMAGE_FILE_HEADER pFileHead = (PIMAGE_FILE_HEADER)&pNtHead->FileHeader;
+    PIMAGE_OPTIONAL_HEADER pOpHead = (PIMAGE_OPTIONAL_HEADER)&pNtHead->OptionalHeader;
+
+    DWORD dwInputTable = pOpHead->DataDirectory[1].VirtualAddress;    // 找出导入表偏移
+    DWORD dwTemp = (DWORD)GetModuleHandle(NULL) + dwInputTable;
+    PIMAGE_IMPORT_DESCRIPTOR   pImport = (PIMAGE_IMPORT_DESCRIPTOR)dwTemp;
+    PIMAGE_IMPORT_DESCRIPTOR   pCurrent = pImport;
+    DWORD* pFirstThunk; //导入表子表,IAT存储函数地址表.
+    //遍历导入表
+    while (pCurrent->FirstThunk != NULL)
+    {
+        dwTemp = pCurrent->FirstThunk + (DWORD)GetModuleHandle(NULL);// 找到内存中的导入表
+        pFirstThunk = (DWORD*)dwTemp;                               // 赋值 pFirstThunk
+        while (*(DWORD*)pFirstThunk != NULL)                         // 不为NULl说明没有结束
+        {
+            if (*(DWORD*)pFirstThunk == (DWORD)pFuncAddress)       // 相等说明正是我们想要的地址
+            {
+                MessageBoxA(NULL, "hi", "hi", MB_OK);
+                DWORD oldProtected;
+                VirtualProtect(pFirstThunk, 0x1000, PAGE_EXECUTE_READWRITE, &oldProtected);  // 开启写权限
+                dwTemp = (DWORD)MyWait;
+                //(DWORD*)&dwTemp
+                memcpy(pFirstThunk, (DWORD*)&dwTemp, 4);                                    // 将MyMessageBox地址拷贝替换
+                VirtualProtect(pFirstThunk, 0x1000, oldProtected, &oldProtected);            // 关闭写保护
+            }
+            pFirstThunk++; // 继续递增循环
+        }
+        pCurrent++;        // 每次是加1个导入表结构.
+    }
+}
 BOOL APIENTRY DllMain(HMODULE hMod, DWORD cause, LPVOID lpReserved)
 {
-    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-
+    
     if (!InputManager::Ready())
         return TRUE;
 
     if (cause == DLL_PROCESS_ATTACH) 
     {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
+        IATHook();
         AllocConsole();
         freopen("CONIN$", "r", stdin);
         freopen("CONOUT$", "w", stdout);
